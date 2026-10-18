@@ -1,0 +1,246 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Data model (v2 + task sets, bez poziomów trudności)
+    // ===============================================================
+
+    function isAdmin() {
+      return request.auth != null
+        && request.auth.token.email == "barbara_77@op.pl";
+    }
+
+    function isValidEmail(email) {
+      return email is string &&
+        email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function isValidDateString(dateStr) {
+      return dateStr is string &&
+        dateStr.matches("^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}.*Z?$");
+    }
+
+    function validTaskKind(k) {
+      return k in ["ledger", "quiz", "principles"];
+    }
+
+    function validSessionKind(k) {
+      return k in ["ledger", "quiz", "principles", "single", "multiple", "open"];
+    }
+
+    function validSetQuestionKind(k) {
+      return k in ["ledger", "single", "multiple", "open"];
+    }
+
+    function validSessionStatus(s) {
+      return s in ["in_progress", "submitted", "expired"];
+    }
+
+    function isValidExamConfig(data) {
+      return data.keys().hasAll(["durationMinutes"]) &&
+        data.durationMinutes is number && data.durationMinutes > 0;
+    }
+
+    function isValidTask(data) {
+      return data.keys().hasAll(["number", "prompt", "active", "kind"]) &&
+        data.number is string && data.number.size() > 0 && data.number.size() <= 32 &&
+        data.prompt is string && data.prompt.size() > 0 && data.prompt.size() <= 8000 &&
+        data.active is bool &&
+        validTaskKind(data.kind);
+    }
+
+    function examCommonOk(data) {
+      return data.title is string && data.title.size() >= 1 && data.title.size() <= 120 &&
+        isValidDateString(data.opensAt) &&
+        isValidDateString(data.closesAt) &&
+        data.durationMinutes is number && data.durationMinutes > 0 && data.durationMinutes <= 300 &&
+        data.acceptingSubmissions is bool &&
+        data.createdAt is string &&
+        data.createdBy is string && data.createdBy.size() > 0;
+    }
+
+    function isValidExamEvent(data) {
+      return examCommonOk(data) &&
+        (
+          (
+            data.keys().hasAll(["title", "opensAt", "closesAt", "durationMinutes",
+              "questionCount", "taskSetId", "acceptingSubmissions", "createdAt", "createdBy"]) &&
+            data.questionCount is number && data.questionCount >= 1 && data.questionCount <= 50 &&
+            data.taskSetId is string && data.taskSetId.size() >= 1
+          )
+          ||
+          (
+            data.keys().hasAll(["title", "opensAt", "closesAt", "durationMinutes",
+              "taskIds", "acceptingSubmissions", "createdAt", "createdBy"]) &&
+            data.taskIds is list && data.taskIds.size() >= 1 && data.taskIds.size() <= 200
+          )
+        );
+    }
+
+    function isValidSessionCreate(data) {
+      return data.keys().hasAll([
+          "firstName", "lastName", "email", "studentIndex",
+          "status", "startedAt", "endsAt", "configSnapshot", "sessionToken",
+          "examId", "examTitle"
+        ]) &&
+        data.firstName is string && data.firstName.size() >= 1 && data.firstName.size() <= 80 &&
+        data.lastName is string && data.lastName.size() >= 1 && data.lastName.size() <= 80 &&
+        isValidEmail(data.email) &&
+        data.studentIndex is string && data.studentIndex.size() >= 1 && data.studentIndex.size() <= 32 &&
+        data.status == "in_progress" &&
+        isValidDateString(data.startedAt) &&
+        isValidDateString(data.endsAt) &&
+        isValidExamConfig(data.configSnapshot) &&
+        data.sessionToken is string && data.sessionToken.size() >= 16 && data.sessionToken.size() <= 128 &&
+        data.examId is string && data.examId.size() >= 1 &&
+        data.examTitle is string && data.examTitle.size() >= 1 && data.examTitle.size() <= 120 &&
+        (!("submittedAt" in data) || data.submittedAt == null);
+    }
+
+    function sessionTokenUnchanged() {
+      return request.resource.data.sessionToken == resource.data.sessionToken;
+    }
+
+    function isValidSessionStudentUpdate() {
+      return sessionTokenUnchanged() &&
+        request.resource.data.keys().hasAll([
+          "firstName", "lastName", "email", "studentIndex",
+          "status", "startedAt", "endsAt", "configSnapshot", "sessionToken",
+          "examId", "examTitle"
+        ]) &&
+        request.resource.data.firstName == resource.data.firstName &&
+        request.resource.data.lastName == resource.data.lastName &&
+        request.resource.data.email == resource.data.email &&
+        request.resource.data.studentIndex == resource.data.studentIndex &&
+        request.resource.data.startedAt == resource.data.startedAt &&
+        request.resource.data.endsAt == resource.data.endsAt &&
+        request.resource.data.configSnapshot == resource.data.configSnapshot &&
+        request.resource.data.examId == resource.data.examId &&
+        request.resource.data.examTitle == resource.data.examTitle &&
+        validSessionStatus(request.resource.data.status) &&
+        resource.data.status == "in_progress";
+    }
+
+    function isValidBoard(board) {
+      return board is map &&
+        board.keys().hasAll(["opened", "entries", "log", "resultMode"]) &&
+        board.opened is list &&
+        board.entries is list &&
+        board.log is list &&
+        board.resultMode in ["nature", "function"];
+    }
+
+    function isValidSessionTask(data) {
+      return data.keys().hasAll([
+          "order", "number", "prompt", "kind", "board"
+        ]) &&
+        data.order is number && data.order >= 1 && data.order <= 50 &&
+        data.number is string && data.number.size() > 0 && data.number.size() <= 32 &&
+        data.prompt is string && data.prompt.size() > 0 && data.prompt.size() <= 8000 &&
+        validSessionKind(data.kind) &&
+        isValidBoard(data.board);
+    }
+
+    function isValidSessionTaskUpdate() {
+      return isValidSessionTask(request.resource.data) &&
+        request.resource.data.order == resource.data.order &&
+        request.resource.data.number == resource.data.number &&
+        request.resource.data.prompt == resource.data.prompt &&
+        request.resource.data.kind == resource.data.kind &&
+        (
+          !("sourceTaskId" in resource.data) ||
+          request.resource.data.sourceTaskId == resource.data.sourceTaskId
+        ) &&
+        (
+          !("sourceQuestionId" in resource.data) ||
+          request.resource.data.sourceQuestionId == resource.data.sourceQuestionId
+        ) &&
+        (
+          !("options" in resource.data) ||
+          request.resource.data.options == resource.data.options
+        ) &&
+        (
+          !("correctOptionIds" in resource.data) ||
+          request.resource.data.correctOptionIds == resource.data.correctOptionIds
+        ) &&
+        (
+          !("points" in resource.data) ||
+          request.resource.data.points == resource.data.points
+        );
+    }
+
+    function isValidTaskSet(data) {
+      return data.keys().hasAll(["name", "createdAt", "createdBy", "updatedAt"]) &&
+        data.name is string && data.name.size() >= 1 && data.name.size() <= 120 &&
+        data.createdAt is string &&
+        data.createdBy is string && data.createdBy.size() > 0 &&
+        data.updatedAt is string;
+    }
+
+    function isValidSetQuestion(data) {
+      return data.keys().hasAll(["order", "kind", "prompt", "number", "points"]) &&
+        data.order is number && data.order >= 1 && data.order <= 500 &&
+        validSetQuestionKind(data.kind) &&
+        data.prompt is string && data.prompt.size() > 0 && data.prompt.size() <= 8000 &&
+        data.number is string && data.number.size() > 0 && data.number.size() <= 32 &&
+        data.points is number && data.points > 0 && data.points <= 100;
+    }
+
+    match /examConfig/{docId} {
+      allow read: if true;
+      allow create, update: if isAdmin() && isValidExamConfig(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /exams/{examId} {
+      allow read: if true;
+      allow create: if isAdmin() && isValidExamEvent(request.resource.data);
+      allow update: if isAdmin() && isValidExamEvent(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /tasks/{taskId} {
+      allow read: if isAdmin() || resource.data.active == true;
+      allow create, update: if isAdmin() && isValidTask(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /taskSets/{setId} {
+      allow read: if true;
+      allow create, update: if isAdmin() && isValidTaskSet(request.resource.data);
+      allow delete: if isAdmin();
+
+      match /questions/{questionId} {
+        allow read: if true;
+        allow create, update: if isAdmin() && isValidSetQuestion(request.resource.data);
+        allow delete: if isAdmin();
+      }
+
+      // Odczyt potrzebny przy starcie sesji (snapshot kluczy do auto-oceny na zadaniu).
+      match /answerKeys/{questionId} {
+        allow read: if true;
+        allow write: if isAdmin();
+      }
+    }
+
+    match /sessions/{sessionId} {
+      allow get: if true;
+      allow list: if isAdmin();
+      allow create: if isValidSessionCreate(request.resource.data);
+      allow update: if isAdmin() || isValidSessionStudentUpdate();
+      allow delete: if isAdmin();
+
+      match /tasks/{taskId} {
+        allow get: if true;
+        allow list: if true;
+        allow create: if isValidSessionTask(request.resource.data);
+        allow update: if isAdmin() || isValidSessionTaskUpdate();
+        allow delete: if isAdmin();
+      }
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -10,7 +10,12 @@ export interface Lesson {
   quiz?: QuizItem[];
 }
 
-function task(id: string, number: string, prompt: string, kind: Lesson["kind"] = "ledger"): Lesson {
+function task(
+  id: string,
+  number: string,
+  prompt: string,
+  kind: Lesson["kind"] = "ledger",
+): Lesson {
   return { id, number, kind, prompt };
 }
 

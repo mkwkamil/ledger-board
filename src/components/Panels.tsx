@@ -27,6 +27,8 @@ export function SummaryPanel({
   summary: BoardSummary;
   mode: ResultMode;
   onMode: (mode: ResultMode) => void;
+  /** @deprecated tryb podglądu i tak pozwala przełączać źródło kosztów */
+  readOnly?: boolean;
 }) {
   return (
     <section className="summary-stack" aria-label="Skutki operacji">
@@ -51,18 +53,10 @@ export function SummaryPanel({
       <article className="metric note">
         <p>Źródło kosztów</p>
         <div className="mode-split" role="group" aria-label="Źródło kosztów wyniku">
-          <button
-            type="button"
-            className={mode === "nature" ? "is-current" : ""}
-            onClick={() => onMode("nature")}
-          >
+          <button type="button" className={mode === "nature" ? "is-current" : ""} onClick={() => onMode("nature")}>
             Zespół 4
           </button>
-          <button
-            type="button"
-            className={mode === "function" ? "is-current" : ""}
-            onClick={() => onMode("function")}
-          >
+          <button type="button" className={mode === "function" ? "is-current" : ""} onClick={() => onMode("function")}>
             Zespół 5
           </button>
         </div>

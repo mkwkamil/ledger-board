@@ -21,10 +21,28 @@ Thumbs.db
 .vscode/*
 !.vscode/extensions.json
 
-# Env / secrets
+# Env / secrets — nigdy nie commituj prawdziwych wartości
 .env
 .env.*
 !.env.example
+!.env.seed.example
+
+# Klucze serwisowe i poświadczenia (Firebase Admin, GCP, itd.)
+*-firebase-adminsdk-*.json
+serviceAccount*.json
+**/service-account*.json
+credentials*.json
+**/secrets/
+*.pem
+*.p12
+*.key
+
+# Firebase lokalne artefakty (cache deploy)
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+pubsub-debug.log
 
 # Tests / coverage
 coverage/

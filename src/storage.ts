@@ -26,8 +26,16 @@ export interface StoredTask {
   number: string;
   title: string;
   prompt: string;
-  kind: "ledger" | "quiz" | "principles";
+  kind: "ledger" | "quiz" | "principles" | "single" | "multiple" | "open";
   quiz?: Array<{ question: string }>;
+  options?: Array<{ id: string; text: string }>;
+  studentAnswer?: string | string[] | null;
+  /** Meta oceny (sesja admina). */
+  points?: number;
+  correctOptionIds?: string[];
+  autoScore?: number | null;
+  manualScore?: number | null;
+  isCorrect?: boolean | null;
   opened: AccountDef[];
   entries: JournalEntry[];
   log: ActivityItem[];

@@ -52,7 +52,7 @@ Pod koniec semestru studenci wchodzą na `/kolokwium`, podają dane, dostają **
 
 ### Czas
 
-- Globalny limit na całą sesję (np. 90 min) — konfigurowalny w adminie / env.
+- Globalny limit na całą sesję: **60 min** (`ExamConfig.durationMinutes = 60`) — później konfigurowalny w adminie.
 - Timer widoczny w UI.
 - Po deadline: auto-submit aktualnego stanu wszystkich 5 tablic.
 
@@ -91,7 +91,7 @@ Ocena merytoryczna (punkty) w v2.0 może być **ręczna** albo tylko archiwum st
 
 | Pole | Typ | Opis |
 |------|-----|------|
-| durationMinutes | number | np. 90 |
+| durationMinutes | number | **60** (ustalone) |
 | easyCount | number | 3 |
 | mediumCount | number | 1 |
 | hardCount | number | 1 |
@@ -152,22 +152,19 @@ Autoryzacja studenta: **token sesji** (cookie HttpOnly lub bearer) wydany przy `
 | CRUD | `/api/admin/tasks` | bank zadań + difficulty |
 | GET/PATCH | `/api/admin/exam-config` | czas, proporcje |
 
-## 8. Stack — decyzja do potwierdzenia
+## 8. Stack — ustalone
 
-Propozycja domyślna (szybki start, mało ops):
+| Warstwa | Wybór |
+|---------|-------|
+| Frontend | Vite React + React Router (`/kolokwium`, `/admin`) |
+| Backend | **Firebase** (Firestore + Auth dla admina) |
+| Hosting | Firebase Hosting (docelowo) |
 
-| Warstwa | Propozycja | Alternatywa |
-|---------|------------|-------------|
-| Frontend | React (obecny) + router (`/kolokwium`, `/admin`) | Next.js full-stack |
-| Backend | Firebase (Auth admin + Firestore) **lub** prosty Nest/Express + Postgres | Supabase |
-| Hosting | Firebase Hosting / Vercel | |
+Kod konfiguracji egzaminu: `src/exam/config.ts`.
 
-**Rekomendacja na v2.0:**  
-- Frontend: Vite React + React Router (minimalna zmiana względem v1).  
-- Backend: **Firebase** (Firestore + Auth dla admina) — bez własnego VPS, szybki deploy.  
-Jeśli uczelnia wymaga self-host / RODO on-prem → Express + Postgres.
-
-Decyzję zapisać tutaj po wyborze: `_do uzupełnienia_`.
+**Projekt Firebase:** `ledger-board-kolokwium` (display name: ledger-board; ID `ledger-board` był zajęty).  
+Region Firestore: `europe-central2`. Auth: Email/Password (admin). Hosting: SPA z `dist`.  
+Client SDK: `src/firebase.ts` + typy `src/firebase/types.ts`. Seed banku: `npm run seed`.
 
 ## 9. Snapshot wyniku (to, co zapisujemy)
 
@@ -219,11 +216,17 @@ Na każde z 5 zadań w sesji:
 | 7 | Eksport JSON/PDF/CSV | dokumentacja |
 | 8 | Hardening, deploy, instrukcja dla prowadzącego | release v2.0 |
 
-## 12. Otwarte decyzje
+## 12. Decyzje
 
-- [ ] Stack backendu (Firebase vs Postgres)
-- [ ] Kolejność 5 zadań (stała trudność vs pełny shuffle)
-- [ ] Limit czasu (domyślna wartość)
+### Ustalone
+
+- [x] Stack backendu: **Firebase**
+- [x] Limit czasu: **60 min**
+- [x] Trudność w banku: **na razie wszystkie zadania = `easy`** (losowanie 3/1/1 wymaga później oznaczenia medium/hard)
+
+### Otwarte
+
+- [ ] Kolejność 5 zadań (stała trudność vs pełny shuffle) — propozycja: stała (łatwe → średnie → ciężkie)
 - [ ] Domeny email uczelnianych
 - [ ] Czy v1 zostaje publicznie na `/cwiczenia` obok kolokwium
 - [ ] Czy jeden student może mieć wiele podejść

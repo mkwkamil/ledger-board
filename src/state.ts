@@ -28,6 +28,7 @@ export type Action =
   | { type: "update-task"; id: string; number: string; prompt: string }
   | { type: "delete-task"; id: string }
   | { type: "set-result-mode"; mode: ResultMode }
+  | { type: "set-student-answer"; answer: string | string[] | null }
   | { type: "open-account"; account: AccountDef }
   | { type: "close-account"; code: string }
   | { type: "post-entry"; entry: Omit<JournalEntry, "id"> }
@@ -292,6 +293,8 @@ export function reducer(state: AppState, action: Action): AppState {
     }
     case "set-result-mode":
       return patchActive(state, (task) => ({ ...task, resultMode: action.mode }));
+    case "set-student-answer":
+      return patchActive(state, (task) => ({ ...task, studentAnswer: action.answer }));
     case "open-account": {
       const current = active(state);
       if (!current) return state;

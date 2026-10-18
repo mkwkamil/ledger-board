@@ -13,6 +13,7 @@ interface BoardProps {
   onDeleteEntry: (id: string) => void;
   onOpen: () => void;
   onAccountClick: (code: string) => void;
+  readOnly?: boolean;
 }
 
 interface PendingConfirm {
@@ -22,7 +23,16 @@ interface PendingConfirm {
   action: () => void;
 }
 
-export function Board({ opened, entries, activeEntryId, onClose, onDeleteEntry, onOpen, onAccountClick }: BoardProps) {
+export function Board({
+  opened,
+  entries,
+  activeEntryId,
+  onClose,
+  onDeleteEntry,
+  onOpen,
+  onAccountClick,
+  readOnly = false,
+}: BoardProps) {
   const [editingCode, setEditingCode] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<PendingConfirm | null>(null);
 
@@ -30,10 +40,16 @@ export function Board({ opened, entries, activeEntryId, onClose, onDeleteEntry, 
     return (
       <section className="empty-board">
         <h2>Pusta tablica</h2>
-        <p>Najpierw otwórz konta przyciskiem „Otwórz konto”. Potem kliknij konto albo użyj „Nowa operacja”.</p>
-        <button type="button" className="primary" onClick={onOpen}>
-          Otwórz pierwsze konto
-        </button>
+        {readOnly ? (
+          <p>Brak otwartych kont w tym zadaniu.</p>
+        ) : (
+          <>
+            <p>Najpierw otwórz konta przyciskiem „Otwórz konto”. Potem kliknij konto albo użyj „Nowa operacja”.</p>
+            <button type="button" className="primary" onClick={onOpen}>
+              Otwórz pierwsze konto
+            </button>
+          </>
+        )}
       </section>
     );
   }
@@ -49,15 +65,15 @@ export function Board({ opened, entries, activeEntryId, onClose, onDeleteEntry, 
           return (
             <article
               key={account.code}
-              className={`t-account is-clickable ${editing ? "is-editing" : ""}`}
-              role="button"
-              tabIndex={0}
+              className={`t-account ${readOnly ? "" : "is-clickable"} ${editing ? "is-editing" : ""}`}
+              role={readOnly ? undefined : "button"}
+              tabIndex={readOnly ? undefined : 0}
               onClick={() => {
-                if (editing) return;
+                if (readOnly || editing) return;
                 onAccountClick(account.code);
               }}
               onKeyDown={(event) => {
-                if (editing) return;
+                if (readOnly || editing) return;
                 if (event.key === "Enter" || event.key === " ") {
                   event.preventDefault();
                   onAccountClick(account.code);
@@ -69,41 +85,43 @@ export function Board({ opened, entries, activeEntryId, onClose, onDeleteEntry, 
                   <span className="code">{account.code}</span>
                   <h3>{account.name}</h3>
                 </div>
-                <div className="t-account-actions">
-                  <button
-                    type="button"
-                    className={`icon-button ghost t-action ${editing ? "is-active" : ""}`}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      setEditingCode(editing ? null : account.code);
-                    }}
-                    aria-label={editing ? `Zakończ edycję konta ${account.code}` : `Edytuj zapisy konta ${account.code}`}
-                    title={editing ? "Zakończ edycję" : "Edytuj zapisy"}
-                    aria-pressed={editing}
-                  >
-                    <IconEdit />
-                  </button>
-                  <button
-                    type="button"
-                    className="icon-button ghost danger t-action"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      setConfirm({
-                        title: "Usuń konto",
-                        message: `Usunąć konto ${account.code} z tablicy? Zapisy dotyczące tego konta też zostaną usunięte.`,
-                        confirmLabel: "Usuń konto",
-                        action: () => {
-                          if (editingCode === account.code) setEditingCode(null);
-                          onClose(account.code);
-                        },
-                      });
-                    }}
-                    aria-label={`Usuń konto ${account.code}`}
-                    title="Usuń konto"
-                  >
-                    <IconTrash />
-                  </button>
-                </div>
+                {readOnly ? null : (
+                  <div className="t-account-actions">
+                    <button
+                      type="button"
+                      className={`icon-button ghost t-action ${editing ? "is-active" : ""}`}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setEditingCode(editing ? null : account.code);
+                      }}
+                      aria-label={editing ? `Zakończ edycję konta ${account.code}` : `Edytuj zapisy konta ${account.code}`}
+                      title={editing ? "Zakończ edycję" : "Edytuj zapisy"}
+                      aria-pressed={editing}
+                    >
+                      <IconEdit />
+                    </button>
+                    <button
+                      type="button"
+                      className="icon-button ghost danger t-action"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setConfirm({
+                          title: "Usuń konto",
+                          message: `Usunąć konto ${account.code} z tablicy? Zapisy dotyczące tego konta też zostaną usunięte.`,
+                          confirmLabel: "Usuń konto",
+                          action: () => {
+                            if (editingCode === account.code) setEditingCode(null);
+                            onClose(account.code);
+                          },
+                        });
+                      }}
+                      aria-label={`Usuń konto ${account.code}`}
+                      title="Usuń konto"
+                    >
+                      <IconTrash />
+                    </button>
+                  </div>
+                )}
               </header>
               <div className="t-grid">
                 <Column
