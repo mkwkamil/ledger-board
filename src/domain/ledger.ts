@@ -27,6 +27,7 @@ export interface AccountPicture {
   balanceSide: Side | null;
   lines: Array<{
     entryId: string;
+    lineIndex: number;
     index: number;
     side: Side;
     amount: number;
@@ -80,8 +81,8 @@ export function pictureAccount(account: AccountDef, entries: JournalEntry[]): Ac
   const lines: AccountPicture["lines"] = [];
 
   entries.forEach((entry, index) => {
-    for (const line of entry.lines) {
-      if (line.accountCode !== account.code) continue;
+    entry.lines.forEach((line, lineIndex) => {
+      if (line.accountCode !== account.code) return;
       if (entry.opening) {
         if (line.side === "Wn") openingWn += line.amount;
         else openingMa += line.amount;
@@ -89,13 +90,14 @@ export function pictureAccount(account: AccountDef, entries: JournalEntry[]): Ac
       else turnoverMa += line.amount;
       lines.push({
         entryId: entry.id,
+        lineIndex,
         index: index + 1,
         side: line.side,
         amount: line.amount,
         opening: entry.opening,
         period: entry.period,
       });
-    }
+    });
   });
 
   const balance = openingWn + turnoverWn - (openingMa + turnoverMa);

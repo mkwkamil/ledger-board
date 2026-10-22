@@ -1,8 +1,8 @@
-import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { KIND_LABELS, createAccount, type AccountDef, type AccountKind, type Side } from "../domain/accounts";
 import type { JournalLine } from "../domain/ledger";
-import { formatMoney, parseMoney } from "../domain/money";
+import { formatMoney, moneyInputValue, parseMoney, parseMoneyAllowZero } from "../domain/money";
 import { PRESETS } from "../data/chart";
 import type { ActivityItem } from "../storage";
 import { IconChevronDown, IconTrash } from "./Icons";
@@ -19,7 +19,62 @@ function useEscapeClose(onClose: () => void) {
   }, [onClose]);
 }
 
-export function AccountDialog({ onClose, onOpen }: { onClose: () => void; onOpen: (account: AccountDef) => void }) {
+function DialogBackdrop({
+  onClose,
+  prompt,
+  wide,
+  children,
+}: {
+  onClose: () => void;
+  prompt?: string;
+  wide?: boolean;
+  children: ReactNode;
+}) {
+  const [promptOpen, setPromptOpen] = useState(true);
+  const promptText = prompt?.trim() ?? "";
+
+  return (
+    <div className="backdrop" role="presentation" onMouseDown={onClose}>
+      <div
+        className={`backdrop-stack${wide ? " is-wide" : ""}`}
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        {promptText ? (
+          <section className={`dialog-prompt${promptOpen ? " is-open" : ""}`} aria-label="Polecenie zadania">
+            <button
+              type="button"
+              className="dialog-prompt-toggle"
+              onClick={() => setPromptOpen((open) => !open)}
+              aria-expanded={promptOpen}
+              aria-controls="dialog-prompt-body"
+            >
+              <span className="dialog-prompt-label">Polecenie</span>
+              <span className="dialog-prompt-chevron" aria-hidden="true">
+                <IconChevronDown />
+              </span>
+            </button>
+            {promptOpen ? (
+              <p id="dialog-prompt-body" className="dialog-prompt-body">
+                {promptText}
+              </p>
+            ) : null}
+          </section>
+        ) : null}
+        {children}
+      </div>
+    </div>
+  );
+}
+
+export function AccountDialog({
+  onClose,
+  onOpen,
+  prompt,
+}: {
+  onClose: () => void;
+  onOpen: (account: AccountDef) => void;
+  prompt?: string;
+}) {
   const [query, setQuery] = useState("");
   const [customOpen, setCustomOpen] = useState(false);
   const [code, setCode] = useState("");
@@ -30,13 +85,12 @@ export function AccountDialog({ onClose, onOpen }: { onClose: () => void; onOpen
   useEscapeClose(onClose);
 
   return (
-    <div className="backdrop" role="presentation" onMouseDown={onClose}>
+    <DialogBackdrop onClose={onClose} prompt={prompt}>
       <div
         className="dialog account-dialog"
         role="dialog"
         aria-modal="true"
         aria-labelledby="open-account-title"
-        onMouseDown={(event) => event.stopPropagation()}
       >
         <header className="dialog-head">
           <div>
@@ -127,7 +181,7 @@ export function AccountDialog({ onClose, onOpen }: { onClose: () => void; onOpen
           </form>
         )}
       </div>
-    </div>
+    </DialogBackdrop>
   );
 }
 
@@ -146,17 +200,19 @@ export function EntryDialog({
   presetAccountCode = "",
   onClose,
   onPost,
+  prompt,
 }: {
   opened: AccountDef[];
   presetAccountCode?: string;
   onClose: () => void;
   onPost: (entry: { description: string; period: string; opening: boolean; lines: JournalLine[] }) => void;
+  prompt?: string;
 }) {
   const [tab, setTab] = useState<"entry" | "opening">("entry");
   useEscapeClose(onClose);
   return (
-    <div className="backdrop" role="presentation" onMouseDown={onClose}>
-      <div className="dialog wide entry-dialog" role="dialog" aria-modal="true" aria-labelledby="entry-title" onMouseDown={(event) => event.stopPropagation()}>
+    <DialogBackdrop onClose={onClose} prompt={prompt} wide>
+      <div className="dialog wide entry-dialog" role="dialog" aria-modal="true" aria-labelledby="entry-title">
         <header className="dialog-head">
           <div>
             <h2 id="entry-title">Nowa operacja</h2>
@@ -187,7 +243,7 @@ export function EntryDialog({
           onPost={onPost}
         />
       </div>
-    </div>
+    </DialogBackdrop>
   );
 }
 
@@ -310,6 +366,88 @@ function ManualForm({
         </button>
       </div>
     </form>
+  );
+}
+
+/** Edycja kwoty pojedynczego wpisu na koncie T. Kwota 0 = usunięcie operacji. */
+export function EditLineDialog({
+  accountCode,
+  side,
+  mark,
+  amount,
+  onClose,
+  onSave,
+  onDelete,
+}: {
+  accountCode: string;
+  side: Side;
+  mark: string;
+  amount: number;
+  onClose: () => void;
+  onSave: (amount: number) => void;
+  onDelete: () => void;
+}) {
+  const [value, setValue] = useState(moneyInputValue(amount));
+  const parsed = parseMoneyAllowZero(value);
+  const canSubmit = parsed !== null;
+  useEscapeClose(onClose);
+
+  return (
+    <div className="backdrop" role="presentation" onMouseDown={onClose}>
+      <div
+        className="dialog edit-line-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="edit-line-title"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <header className="dialog-head">
+          <div>
+            <h2 id="edit-line-title">Edytuj wpis {mark}</h2>
+            <p className="dialog-sub">
+              Konto {accountCode} · {side}. Ustaw 0, aby usunąć operację.
+            </p>
+          </div>
+          <button type="button" className="icon-button ghost dialog-close" onClick={onClose} aria-label="Zamknij" title="Zamknij">
+            ×
+          </button>
+        </header>
+        <form
+          className="entry-form edit-line-form"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (parsed === null) return;
+            if (parsed === 0) {
+              onClose();
+              onDelete();
+              return;
+            }
+            onSave(parsed);
+            onClose();
+          }}
+        >
+          <label>
+            Kwota
+            <input
+              autoFocus
+              inputMode="decimal"
+              value={value}
+              onChange={(event) => setValue(event.target.value)}
+              placeholder="0,00"
+              aria-label="Kwota wpisu"
+            />
+          </label>
+          <div className="entry-actions">
+            <button type="button" className="secondary" onClick={onClose}>
+              Anuluj
+            </button>
+            <button type="submit" className="primary" disabled={!canSubmit}>
+              Zapisz
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   );
 }
 
@@ -655,8 +793,14 @@ export function LogDialog({
         ) : (
           <ol className="log-list">
             {log.map((item, index) => {
-              const selectable = item.kind === "post-entry" && item.entryId && liveEntryIds.has(item.entryId);
-              const mark = item.kind === "post-entry" && item.opening ? "BO" : `(${index + 1})`;
+              const selectable =
+                (item.kind === "post-entry" || item.kind === "update-entry") &&
+                !!item.entryId &&
+                liveEntryIds.has(item.entryId);
+              const mark =
+                (item.kind === "post-entry" || item.kind === "update-entry") && item.opening
+                  ? "BO"
+                  : `(${index + 1})`;
               const note = [item.description?.trim(), item.period?.trim()].filter(Boolean).join(" · ");
               const content = (
                 <>
@@ -675,6 +819,19 @@ export function LogDialog({
                     {item.kind === "delete-entry" ? (
                       <span className="log-row">
                         <span className="log-event">Usunięto operację</span>
+                        <span className="log-lines">
+                          {(item.lines ?? []).map((line, lineIndex) => (
+                            <em key={`${item.id}-${lineIndex}`}>
+                              {line.side} {line.accountCode} {formatMoney(line.amount)}
+                            </em>
+                          ))}
+                        </span>
+                        {note ? <span className="log-note">{note}</span> : null}
+                      </span>
+                    ) : null}
+                    {item.kind === "update-entry" ? (
+                      <span className="log-row">
+                        <span className="log-event">Zmieniono operację</span>
                         <span className="log-lines">
                           {(item.lines ?? []).map((line, lineIndex) => (
                             <em key={`${item.id}-${lineIndex}`}>

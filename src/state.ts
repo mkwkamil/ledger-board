@@ -32,6 +32,7 @@ export type Action =
   | { type: "open-account"; account: AccountDef }
   | { type: "close-account"; code: string }
   | { type: "post-entry"; entry: Omit<JournalEntry, "id"> }
+  | { type: "update-entry-line"; entryId: string; lineIndex: number; amount: number }
   | { type: "delete-entry"; id: string }
   | { type: "undo" }
   | { type: "redo" }
@@ -379,6 +380,38 @@ export function reducer(state: AppState, action: Action): AppState {
               period: action.entry.period,
               opening: action.entry.opening,
               lines: action.entry.lines,
+            }),
+          }),
+        { notice: null, activeEntryId: null },
+      );
+    }
+    case "update-entry-line": {
+      const current = active(state);
+      if (!current) return state;
+      const entry = current.entries.find((item) => item.id === action.entryId);
+      if (!entry) return state;
+      if (action.lineIndex < 0 || action.lineIndex >= entry.lines.length) return state;
+      if (!Number.isInteger(action.amount) || action.amount <= 0) {
+        return { ...state, notice: "Kwota musi być większa od zera." };
+      }
+      const nextLines = entry.lines.map((line, index) =>
+        index === action.lineIndex ? { ...line, amount: action.amount } : line,
+      );
+      return patchActive(
+        state,
+        (task) =>
+          withHistory(task, {
+            opened: task.opened,
+            entries: task.entries.map((item) =>
+              item.id === entry.id ? { ...item, lines: nextLines } : item,
+            ),
+            log: appendLog(task.log, {
+              kind: "update-entry",
+              entryId: entry.id,
+              description: entry.description,
+              period: entry.period,
+              opening: entry.opening,
+              lines: nextLines,
             }),
           }),
         { notice: null, activeEntryId: null },

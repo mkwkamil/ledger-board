@@ -446,6 +446,9 @@ export function ExamWorkspace({
             readOnly={readOnly}
             onClose={(code) => dispatch({ type: "close-account", code })}
             onDeleteEntry={(id) => dispatch({ type: "delete-entry", id })}
+            onUpdateEntryLine={(entryId, lineIndex, amount) =>
+              dispatch({ type: "update-entry-line", entryId, lineIndex, amount })
+            }
             onOpen={() => setDialog("account")}
             onAccountClick={(code) => openEntry(code)}
           />
@@ -474,12 +477,17 @@ export function ExamWorkspace({
       ) : null}
 
       {!readOnly && dialog === "account" ? (
-        <AccountDialog onClose={() => setDialog(null)} onOpen={(account) => dispatch({ type: "open-account", account })} />
+        <AccountDialog
+          prompt={task?.prompt}
+          onClose={() => setDialog(null)}
+          onOpen={(account) => dispatch({ type: "open-account", account })}
+        />
       ) : null}
       {!readOnly && dialog === "entry" ? (
         <EntryDialog
           opened={task?.opened ?? []}
           presetAccountCode={entryPreset}
+          prompt={task?.prompt}
           onClose={() => setDialog(null)}
           onPost={(entry) => dispatch({ type: "post-entry", entry })}
         />

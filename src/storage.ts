@@ -1,7 +1,7 @@
 import type { AccountDef } from "./domain/accounts";
 import type { JournalEntry, JournalLine, ResultMode } from "./domain/ledger";
 
-export type ActivityKind = "open-account" | "close-account" | "post-entry" | "delete-entry";
+export type ActivityKind = "open-account" | "close-account" | "post-entry" | "update-entry" | "delete-entry";
 
 export interface ActivityItem {
   id: string;

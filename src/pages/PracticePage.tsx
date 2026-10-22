@@ -168,6 +168,9 @@ export default function PracticePage() {
           activeEntryId={state.activeEntryId}
           onClose={(code) => dispatch({ type: "close-account", code })}
           onDeleteEntry={(id) => dispatch({ type: "delete-entry", id })}
+          onUpdateEntryLine={(entryId, lineIndex, amount) =>
+            dispatch({ type: "update-entry-line", entryId, lineIndex, amount })
+          }
           onOpen={() => setDialog("account")}
           onAccountClick={(code) => openEntry(code)}
         />
@@ -187,11 +190,18 @@ export default function PracticePage() {
           </button>
         </div>
       ) : null}
-      {dialog === "account" ? <AccountDialog onClose={() => setDialog(null)} onOpen={(account) => dispatch({ type: "open-account", account })} /> : null}
+      {dialog === "account" ? (
+        <AccountDialog
+          prompt={task?.prompt}
+          onClose={() => setDialog(null)}
+          onOpen={(account) => dispatch({ type: "open-account", account })}
+        />
+      ) : null}
       {dialog === "entry" ? (
         <EntryDialog
           opened={task?.opened ?? []}
           presetAccountCode={entryPreset}
+          prompt={task?.prompt}
           onClose={() => setDialog(null)}
           onPost={(entry) => dispatch({ type: "post-entry", entry })}
         />
